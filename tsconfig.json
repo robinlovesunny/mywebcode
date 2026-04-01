@@ -1,36 +1,43 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": false,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "isolatedModules": true,
     "jsx": "react-jsx",
-    "outDir": "dist",
-    "rootDir": "src",
-    "baseUrl": ".",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "bun:bundle": ["stubs/bun-bundle.ts"],
-      "src/*": ["src/*"]
-    },
-    "types": ["node"],
-    "lib": ["ES2022", "DOM"],
-    "allowImportingTsExtensions": false,
-    "noEmit": false
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "include": [
-    "src/**/*",
-    "stubs/**/*"
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "build-src"
   ]
 }
