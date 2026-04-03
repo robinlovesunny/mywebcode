@@ -141,6 +141,13 @@ export class SkillsConfigManager {
     
     config.skills[skill.name] = skill
     this.saveConfig(config)
+
+    // 同时写入 SKILL.md 文件到磁盘
+    try {
+      this.saveSkillMd(skill)
+    } catch (err) {
+      console.warn(`Failed to save SKILL.md for "${skill.name}":`, err)
+    }
   }
 
   /**
@@ -314,6 +321,64 @@ export class SkillsConfigManager {
    */
   getSkillsDir(): string {
     return SKILLS_DIR
+  }
+
+  /**
+   * 根据 SkillConfig 构建 SKILL.md 文件内容
+   */
+  buildSkillMdContent(skill: SkillConfig): string {
+    const lines: string[] = ['---']
+
+    if (skill.displayName) {
+      lines.push(`name: "${skill.displayName}"`)
+    }
+    if (skill.description) {
+      lines.push(`description: "${skill.description}"`)
+    }
+    if (skill.version) {
+      lines.push(`version: "${skill.version}"`)
+    }
+    if (skill.whenToUse) {
+      lines.push(`when_to_use: "${skill.whenToUse}"`)
+    }
+    if (skill.allowedTools && skill.allowedTools.length > 0) {
+      lines.push(`allowed-tools: "${skill.allowedTools.join(', ')}"`)
+    }
+    if (skill.context) {
+      lines.push(`context: ${skill.context}`)
+    }
+    if (skill.userInvocable !== undefined) {
+      lines.push(`user-invocable: ${skill.userInvocable}`)
+    }
+    if (skill.argumentHint) {
+      lines.push(`argument-hint: "${skill.argumentHint}"`)
+    }
+    if (skill.arguments && skill.arguments.length > 0) {
+      lines.push(`arguments: "${skill.arguments.join(', ')}"`)
+    }
+    if (skill.paths && skill.paths.length > 0) {
+      lines.push(`paths: "${skill.paths.join(', ')}"`)
+    }
+
+    lines.push('---')
+    lines.push('')
+    lines.push(skill.content)
+
+    return lines.join('\n')
+  }
+
+  /**
+   * 将技能保存为 SKILL.md 文件到磁盘
+   */
+  saveSkillMd(skill: SkillConfig): void {
+    ensureSkillsDir()
+    const skillDir = path.join(SKILLS_DIR, skill.name)
+    if (!fs.existsSync(skillDir)) {
+      fs.mkdirSync(skillDir, { recursive: true })
+    }
+    const skillFile = path.join(skillDir, 'SKILL.md')
+    const content = this.buildSkillMdContent(skill)
+    fs.writeFileSync(skillFile, content, 'utf-8')
   }
 }
 

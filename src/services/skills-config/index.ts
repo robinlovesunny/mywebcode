@@ -3,3 +3,4 @@
  */
 export * from './types'
 export * from './manager'
+export * from './generate-prompt'

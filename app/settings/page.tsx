@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { 
   ArrowLeft, Eye, EyeOff, Save, Plus, Trash2, Edit2, 
-  Server, Wand2, Settings2, X, Terminal, Globe, Radio
+  Server, Wand2, Settings2, X, Terminal, Globe, Radio, Sparkles, RotateCcw, Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useModels } from "@/hooks/useModels"
 import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 // Types
 interface Settings {
@@ -892,6 +900,171 @@ function MCPSettingsTab() {
   )
 }
 
+// AI Skill Generator Dialog Component
+function AISkillGeneratorDialog({
+  open,
+  onOpenChange,
+  onSkillGenerated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSkillGenerated: (skill: Omit<Skill, 'enabled' | 'source'> & { enabled?: boolean; source?: 'user' | 'project' }) => void
+}) {
+  const [prompt, setPrompt] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [generatedSkill, setGeneratedSkill] = useState<Skill | null>(null)
+  const [error, setError] = useState('')
+  const [step, setStep] = useState<'input' | 'preview'>('input')
+
+  const resetState = () => {
+    setPrompt('')
+    setGenerating(false)
+    setGeneratedSkill(null)
+    setError('')
+    setStep('input')
+  }
+
+  const handleClose = (value: boolean) => {
+    if (!value) {
+      resetState()
+    }
+    onOpenChange(value)
+  }
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      setError('请输入技能需求描述')
+      return
+    }
+
+    setError('')
+    setGenerating(true)
+
+    try {
+      const res = await fetch('/api/skills/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || '生成失败，请重试')
+        return
+      }
+
+      if (data.skill) {
+        setGeneratedSkill(data.skill)
+        setStep('preview')
+      } else {
+        setError('未收到有效的技能配置，请重试')
+      }
+    } catch {
+      setError('网络错误，请检查连接后重试')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleRegenerate = () => {
+    setGeneratedSkill(null)
+    setError('')
+    setStep('input')
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className={cn(step === 'preview' ? "max-w-2xl" : "max-w-lg")}>
+        {step === 'input' ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                AI 创建技能
+              </DialogTitle>
+              <DialogDescription>
+                描述你想要的技能功能，AI 将自动生成完整的技能配置
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {error && (
+                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">需求描述</label>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={"描述你想要的技能功能，例如：\n\n- 创建一个能自动生成 React 组件的技能\n- 创建一个代码审查技能，检查安全漏洞\n- 创建一个数据库迁移脚本生成器"}
+                  rows={6}
+                  disabled={generating}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleClose(false)}
+                disabled={generating}
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={generating || !prompt.trim()}
+                className="gap-2"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    AI 生成中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    生成技能
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                预览生成的技能
+              </DialogTitle>
+              <DialogDescription>
+                请检查 AI 生成的技能配置，可以修改后保存
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-2 max-h-[60vh] overflow-y-auto">
+              <SkillForm
+                skill={generatedSkill ? { ...generatedSkill, enabled: true, source: 'user' } : undefined}
+                onSave={(data) => {
+                  onSkillGenerated(data)
+                  handleClose(false)
+                }}
+                onCancel={handleRegenerate}
+              />
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // Skills Settings Tab
 function SkillsSettingsTab() {
   const [skills, setSkills] = useState<Skill[]>([])
@@ -899,6 +1072,7 @@ function SkillsSettingsTab() {
   const [showForm, setShowForm] = useState(false)
   const [editingSkill, setEditingSkill] = useState<Skill | undefined>()
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -1026,10 +1200,16 @@ function SkillsSettingsTab() {
                 管理 AI Agent 的技能和指令
               </p>
             </div>
-            <Button onClick={() => setShowForm(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              添加技能
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setAiGeneratorOpen(true)} className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                AI 创建
+              </Button>
+              <Button onClick={() => setShowForm(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                添加技能
+              </Button>
+            </div>
           </div>
 
           {skills.length === 0 ? (
@@ -1057,6 +1237,12 @@ function SkillsSettingsTab() {
           )}
         </>
       )}
+
+      <AISkillGeneratorDialog
+        open={aiGeneratorOpen}
+        onOpenChange={setAiGeneratorOpen}
+        onSkillGenerated={handleSave}
+      />
     </div>
   )
 }
